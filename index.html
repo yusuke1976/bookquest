@@ -1,0 +1,639 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>紀伊国屋書店RPG - Book Quest</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Arial', sans-serif;
+            background-color: #f5f5f5;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+        }
+        
+        #gameContainer {
+            width: 800px;
+            background-color: white;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+        }
+        
+        #gameHeader {
+            background-color: #1e3a8a;
+            color: white;
+            padding: 20px;
+            text-align: center;
+        }
+        
+        #gameHeader h1 {
+            font-size: 24px;
+            margin-bottom: 10px;
+        }
+        
+        #playerStats {
+            display: flex;
+            justify-content: space-around;
+            margin-top: 10px;
+        }
+        
+        .stat {
+            text-align: center;
+        }
+        
+        .stat-label {
+            font-size: 12px;
+            opacity: 0.8;
+        }
+        
+        .stat-value {
+            font-size: 18px;
+            font-weight: bold;
+        }
+        
+        #gameScreen {
+            height: 400px;
+            padding: 20px;
+            background-color: #fafafa;
+            position: relative;
+            overflow-y: auto;
+        }
+        
+        #gameControls {
+            padding: 20px;
+            background-color: #e5e7eb;
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+        }
+        
+        button {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            background-color: #3b82f6;
+            color: white;
+            font-size: 14px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        button:hover {
+            background-color: #2563eb;
+            transform: translateY(-2px);
+        }
+        
+        button:disabled {
+            background-color: #9ca3af;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        .dialogue {
+            background-color: white;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 10px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            animation: fadeIn 0.5s;
+        }
+        
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        .npc {
+            color: #059669;
+            font-weight: bold;
+        }
+        
+        .player {
+            color: #1e3a8a;
+            font-weight: bold;
+        }
+        
+        .system {
+            color: #dc2626;
+            font-style: italic;
+        }
+        
+        .book-battle {
+            text-align: center;
+            padding: 20px;
+        }
+        
+        .enemy-hp {
+            background-color: #e5e7eb;
+            height: 20px;
+            border-radius: 10px;
+            overflow: hidden;
+            margin: 10px 0;
+        }
+        
+        .enemy-hp-bar {
+            background-color: #dc2626;
+            height: 100%;
+            transition: width 0.3s;
+        }
+        
+        .level-up {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background-color: #fbbf24;
+            color: #1f2937;
+            padding: 30px;
+            border-radius: 10px;
+            font-size: 24px;
+            font-weight: bold;
+            animation: levelUpPulse 1s ease-in-out;
+            z-index: 1000;
+        }
+        
+        @keyframes levelUpPulse {
+            0%, 100% {
+                transform: translate(-50%, -50%) scale(1);
+            }
+            50% {
+                transform: translate(-50%, -50%) scale(1.2);
+            }
+        }
+        
+        .inventory {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 10px;
+            padding: 10px;
+        }
+        
+        .inventory-item {
+            background-color: white;
+            padding: 10px;
+            border-radius: 5px;
+            text-align: center;
+            font-size: 12px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+        
+        .quest-complete {
+            background-color: #10b981;
+            color: white;
+            padding: 15px;
+            border-radius: 5px;
+            text-align: center;
+            animation: fadeIn 0.5s;
+        }
+    </style>
+</head>
+<body>
+    <div id="gameContainer">
+        <div id="gameHeader">
+            <h1>紀伊国屋書店RPG - Book Quest</h1>
+            <div id="playerStats">
+                <div class="stat">
+                    <div class="stat-label">レベル</div>
+                    <div class="stat-value" id="level">1</div>
+                </div>
+                <div class="stat">
+                    <div class="stat-label">経験値</div>
+                    <div class="stat-value" id="exp">0/100</div>
+                </div>
+                <div class="stat">
+                    <div class="stat-label">HP</div>
+                    <div class="stat-value" id="hp">100/100</div>
+                </div>
+                <div class="stat">
+                    <div class="stat-label">本の知識</div>
+                    <div class="stat-value" id="knowledge">10</div>
+                </div>
+            </div>
+        </div>
+        
+        <div id="gameScreen">
+            <div class="dialogue">
+                <span class="system">ゲーム開始！</span><br>
+                あなたは紀伊国屋書店の新人スタッフです。本の知識を身につけて、一流の書店員を目指しましょう！
+            </div>
+        </div>
+        
+        <div id="gameControls">
+            <button onclick="explore()">店内を探索</button>
+            <button onclick="talkToCustomer()">お客様と話す</button>
+            <button onclick="studyBooks()">本を勉強する</button>
+            <button onclick="checkInventory()">持ち物を確認</button>
+            <button onclick="acceptQuest()">クエストを受ける</button>
+            <button onclick="rest()">休憩する</button>
+        </div>
+    </div>
+
+    <script>
+        // ゲームの状態管理
+        const gameState = {
+            level: 1,
+            exp: 0,
+            expToNext: 100,
+            hp: 100,
+            maxHp: 100,
+            knowledge: 10,
+            inventory: ['初心者の名札', '書店員手帳'],
+            currentQuest: null,
+            questsCompleted: 0,
+            inBattle: false,
+            currentEnemy: null
+        };
+
+        // クエストデータ
+        const quests = [
+            {
+                id: 1,
+                name: '失われた文学全集を探せ！',
+                description: 'お客様が探している「日本文学全集」を見つけてください。',
+                reward: { exp: 50, item: '文学の知識カード' }
+            },
+            {
+                id: 2,
+                name: 'ビジネス書の整理',
+                description: 'ビジネス書コーナーの本を整理してください。',
+                reward: { exp: 40, knowledge: 5 }
+            },
+            {
+                id: 3,
+                name: '子供向けコーナーの危機',
+                description: '絵本が散らかっています！整理を手伝ってください。',
+                reward: { exp: 60, item: '絵本マスターバッジ' }
+            }
+        ];
+
+        // 敵データ
+        const enemies = [
+            {
+                name: '難しい質問をするお客様',
+                hp: 50,
+                maxHp: 50,
+                attack: 15,
+                reward: { exp: 30, knowledge: 3 }
+            },
+            {
+                name: '本の配置を覚えていない新人',
+                hp: 30,
+                maxHp: 30,
+                attack: 10,
+                reward: { exp: 20, knowledge: 2 }
+            },
+            {
+                name: '在庫切れの本を求めるお客様',
+                hp: 70,
+                maxHp: 70,
+                attack: 20,
+                reward: { exp: 50, knowledge: 5 }
+            }
+        ];
+
+        // UIアップデート関数
+        function updateUI() {
+            document.getElementById('level').textContent = gameState.level;
+            document.getElementById('exp').textContent = `${gameState.exp}/${gameState.expToNext}`;
+            document.getElementById('hp').textContent = `${gameState.hp}/${gameState.maxHp}`;
+            document.getElementById('knowledge').textContent = gameState.knowledge;
+        }
+
+        // メッセージ表示関数
+        function showMessage(message, type = 'system') {
+            const gameScreen = document.getElementById('gameScreen');
+            const dialogue = document.createElement('div');
+            dialogue.className = 'dialogue';
+            dialogue.innerHTML = `<span class="${type}">${message}</span>`;
+            gameScreen.appendChild(dialogue);
+            gameScreen.scrollTop = gameScreen.scrollHeight;
+        }
+
+        // 探索機能
+        function explore() {
+            if (gameState.inBattle) return;
+            
+            const areas = [
+                '文学コーナー',
+                'ビジネス書コーナー',
+                '児童書コーナー',
+                '雑誌コーナー',
+                '学習参考書コーナー'
+            ];
+            
+            const area = areas[Math.floor(Math.random() * areas.length)];
+            showMessage(`${area}を探索しています...`);
+            
+            const eventChance = Math.random();
+            if (eventChance < 0.3) {
+                // アイテム発見
+                const items = ['本のしおり', '割引クーポン', '珍しい本', '書店員の極意'];
+                const item = items[Math.floor(Math.random() * items.length)];
+                gameState.inventory.push(item);
+                showMessage(`${item}を見つけました！`, 'system');
+                gainExp(10);
+            } else if (eventChance < 0.6) {
+                // バトル発生
+                startBattle();
+            } else {
+                // 知識獲得
+                const knowledgeGain = Math.floor(Math.random() * 3) + 1;
+                gameState.knowledge += knowledgeGain;
+                showMessage(`本を読んで知識が${knowledgeGain}上がりました！`, 'system');
+                updateUI();
+            }
+        }
+
+        // 客と話す
+        function talkToCustomer() {
+            if (gameState.inBattle) return;
+            
+            const conversations = [
+                { text: '「すみません、村上春樹の新刊はありますか？」', response: '「はい、こちらにございます！」' },
+                { text: '「子供向けの図鑑を探しているんですが...」', response: '「児童書コーナーにご案内します！」' },
+                { text: '「プログラミングの本でおすすめはありますか？」', response: '「初心者向けならこちらがおすすめです！」' }
+            ];
+            
+            const conv = conversations[Math.floor(Math.random() * conversations.length)];
+            showMessage(conv.text, 'npc');
+            setTimeout(() => {
+                showMessage(conv.response, 'player');
+                gainExp(15);
+            }, 1000);
+        }
+
+        // 本を勉強する
+        function studyBooks() {
+            if (gameState.inBattle) return;
+            
+            showMessage('本を読んで勉強しています...');
+            const knowledgeGain = Math.floor(Math.random() * 5) + 3;
+            gameState.knowledge += knowledgeGain;
+            showMessage(`知識が${knowledgeGain}上がりました！`, 'system');
+            
+            // HP回復
+            const hpRecover = Math.floor(Math.random() * 20) + 10;
+            gameState.hp = Math.min(gameState.hp + hpRecover, gameState.maxHp);
+            showMessage(`HPが${hpRecover}回復しました！`, 'system');
+            
+            updateUI();
+        }
+
+        // 持ち物確認
+        function checkInventory() {
+            if (gameState.inBattle) return;
+            
+            const gameScreen = document.getElementById('gameScreen');
+            gameScreen.innerHTML = '<div class="dialogue"><span class="system">持ち物一覧</span></div>';
+            
+            const inventoryDiv = document.createElement('div');
+            inventoryDiv.className = 'inventory';
+            
+            gameState.inventory.forEach(item => {
+                const itemDiv = document.createElement('div');
+                itemDiv.className = 'inventory-item';
+                itemDiv.textContent = item;
+                inventoryDiv.appendChild(itemDiv);
+            });
+            
+            gameScreen.appendChild(inventoryDiv);
+        }
+
+        // クエスト受注
+        function acceptQuest() {
+            if (gameState.inBattle) return;
+            
+            if (gameState.currentQuest) {
+                showMessage('すでにクエストを受注しています！');
+                return;
+            }
+            
+            const availableQuests = quests.filter(q => q.id > gameState.questsCompleted);
+            if (availableQuests.length === 0) {
+                showMessage('現在受けられるクエストはありません。');
+                return;
+            }
+            
+            gameState.currentQuest = availableQuests[0];
+            showMessage(`クエスト「${gameState.currentQuest.name}」を受注しました！`);
+            showMessage(gameState.currentQuest.description, 'npc');
+            
+            // クエスト自動完了（簡略化）
+            setTimeout(() => {
+                completeQuest();
+            }, 3000);
+        }
+
+        // クエスト完了
+        function completeQuest() {
+            if (!gameState.currentQuest) return;
+            
+            const quest = gameState.currentQuest;
+            showMessage(`クエスト「${quest.name}」を完了しました！`, 'quest-complete');
+            
+            // 報酬
+            gainExp(quest.reward.exp);
+            if (quest.reward.item) {
+                gameState.inventory.push(quest.reward.item);
+                showMessage(`${quest.reward.item}を獲得しました！`, 'system');
+            }
+            if (quest.reward.knowledge) {
+                gameState.knowledge += quest.reward.knowledge;
+                showMessage(`知識が${quest.reward.knowledge}上がりました！`, 'system');
+            }
+            
+            gameState.questsCompleted++;
+            gameState.currentQuest = null;
+            updateUI();
+        }
+
+        // 休憩
+        function rest() {
+            if (gameState.inBattle) return;
+            
+            showMessage('休憩室で休んでいます...');
+            gameState.hp = gameState.maxHp;
+            showMessage('HPが全回復しました！', 'system');
+            updateUI();
+        }
+
+        // バトル開始
+        function startBattle() {
+            gameState.inBattle = true;
+            gameState.currentEnemy = {...enemies[Math.floor(Math.random() * enemies.length)]};
+            
+            const gameScreen = document.getElementById('gameScreen');
+            gameScreen.innerHTML = `
+                <div class="book-battle">
+                    <h2>${gameState.currentEnemy.name}が現れた！</h2>
+                    <div class="enemy-hp">
+                        <div class="enemy-hp-bar" style="width: 100%"></div>
+                    </div>
+                    <p>敵HP: <span id="enemyHp">${gameState.currentEnemy.hp}/${gameState.currentEnemy.maxHp}</span></p>
+                </div>
+            `;
+            
+            // バトルボタンに変更
+            updateBattleControls();
+        }
+
+        // バトルコントロール更新
+        function updateBattleControls() {
+            const controls = document.getElementById('gameControls');
+            controls.innerHTML = `
+                <button onclick="attack()">知識で攻撃</button>
+                <button onclick="defend()">防御する</button>
+                <button onclick="useItem()">アイテム使用</button>
+            `;
+        }
+
+        // 攻撃
+        function attack() {
+            if (!gameState.inBattle) return;
+            
+            const damage = gameState.knowledge + Math.floor(Math.random() * 10);
+            gameState.currentEnemy.hp -= damage;
+            
+            showMessage(`${damage}のダメージを与えた！`, 'system');
+            
+            if (gameState.currentEnemy.hp <= 0) {
+                winBattle();
+            } else {
+                updateEnemyHP();
+                enemyAttack();
+            }
+        }
+
+        // 防御
+        function defend() {
+            if (!gameState.inBattle) return;
+            
+            showMessage('防御態勢を取った！', 'system');
+            enemyAttack(0.5); // ダメージ半減
+        }
+
+        // アイテム使用
+        function useItem() {
+            if (!gameState.inBattle) return;
+            
+            if (gameState.inventory.includes('書店員手帳')) {
+                const heal = 30;
+                gameState.hp = Math.min(gameState.hp + heal, gameState.maxHp);
+                showMessage(`書店員手帳を使ってHPが${heal}回復した！`, 'system');
+                updateUI();
+                enemyAttack();
+            } else {
+                showMessage('使えるアイテムがありません！', 'system');
+            }
+        }
+
+        // 敵の攻撃
+        function enemyAttack(modifier = 1) {
+            const damage = Math.floor(gameState.currentEnemy.attack * modifier);
+            gameState.hp -= damage;
+            
+            showMessage(`${damage}のダメージを受けた！`, 'system');
+            updateUI();
+            
+            if (gameState.hp <= 0) {
+                gameOver();
+            }
+        }
+
+        // 敵HP更新
+        function updateEnemyHP() {
+            const hpPercent = (gameState.currentEnemy.hp / gameState.currentEnemy.maxHp) * 100;
+            document.querySelector('.enemy-hp-bar').style.width = `${hpPercent}%`;
+            document.getElementById('enemyHp').textContent = 
+                `${Math.max(0, gameState.currentEnemy.hp)}/${gameState.currentEnemy.maxHp}`;
+        }
+
+        // バトル勝利
+        function winBattle() {
+            gameState.inBattle = false;
+            showMessage(`${gameState.currentEnemy.name}に勝利した！`, 'system');
+            
+            // 報酬
+            gainExp(gameState.currentEnemy.reward.exp);
+            gameState.knowledge += gameState.currentEnemy.reward.knowledge;
+            showMessage(`知識が${gameState.currentEnemy.reward.knowledge}上がった！`, 'system');
+            
+            // 通常のコントロールに戻す
+            resetControls();
+            updateUI();
+        }
+
+        // 経験値獲得
+        function gainExp(amount) {
+            gameState.exp += amount;
+            showMessage(`経験値を${amount}獲得！`, 'system');
+            
+            // レベルアップチェック
+            while (gameState.exp >= gameState.expToNext) {
+                gameState.exp -= gameState.expToNext;
+                gameState.level++;
+                gameState.expToNext = gameState.level * 100;
+                gameState.maxHp += 20;
+                gameState.hp = gameState.maxHp;
+                gameState.knowledge += 5;
+                
+                // レベルアップ演出
+                const levelUpDiv = document.createElement('div');
+                levelUpDiv.className = 'level-up';
+                levelUpDiv.textContent = 'LEVEL UP!';
+                document.body.appendChild(levelUpDiv);
+                
+                setTimeout(() => {
+                    levelUpDiv.remove();
+                }, 1500);
+                
+                showMessage(`レベル${gameState.level}になった！`, 'system');
+            }
+            
+            updateUI();
+        }
+
+        // ゲームオーバー
+        function gameOver() {
+            showMessage('ゲームオーバー...', 'system');
+            showMessage('F5キーでリトライしてください。', 'system');
+            
+            // すべてのボタンを無効化
+            document.querySelectorAll('button').forEach(btn => {
+                btn.disabled = true;
+            });
+        }
+
+        // コントロールリセット
+        function resetControls() {
+            const controls = document.getElementById('gameControls');
+            controls.innerHTML = `
+                <button onclick="explore()">店内を探索</button>
+                <button onclick="talkToCustomer()">お客様と話す</button>
+                <button onclick="studyBooks()">本を勉強する</button>
+                <button onclick="checkInventory()">持ち物を確認</button>
+                <button onclick="acceptQuest()">クエストを受ける</button>
+                <button onclick="rest()">休憩する</button>
+            `;
+        }
+
+        // 初期化
+        updateUI();
+    </script>
+</body>
+</html>
